@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+
+  postgresql:
+    container_name: postgresql_container
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - batch_network
+    volumes:
+      - challenge_postgresql_data:/var/lib/postgresql/data
+      - ../init-scripts:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: challenge_user
+      POSTGRES_PASSWORD: challenge_password
+      POSTGRES_DB: challenge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U challenge_user -d challenge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - batch_network
+    volumes:
+      - challenge_minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  document-management-service:
+    mem_limit: 50m
+    container_name: document_management_service
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - batch_network
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+
+      DB_URL: jdbc:postgresql://postgresql:5432/challenge
+      DB_USER: challenge_user
+      DB_PASS: challenge_password
+
+      MINIO_URL: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: documents
+
+volumes:
+  challenge_postgresql_data:
+  challenge_minio_data:
+
+
+networks:
+  batch_network:
+    driver: bridge
