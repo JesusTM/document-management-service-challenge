@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+  main:
+    allow-bean-definition-overriding: true
+    lazy-initialization: true
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+      file-size-threshold: 2MB
+      resolve-lazily: true
+
+server:
+  port: 0   # Puerto aleatorio para pruebas
+  tomcat:
+    threads:
+      max: 5
+    max-connections: 50
+    accept-count: 50
+    max-swallow-size: 1MB
+
+minio:
+  url: http://localhost:9000
+  accessKey: test-access-key
+  secretKey: test-secret-key
+  bucket: test-bucket
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

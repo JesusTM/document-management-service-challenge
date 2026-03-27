@@ -1,8 +1,7 @@
 package com.clara.ops.challenge.document_management_service_challenge.entity;
 
-import lombok.*;
-
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "document_tags")
@@ -13,14 +12,13 @@ import jakarta.persistence.*;
 @Builder
 public class DocumentTag {
 
-    @EmbeddedId
-    private DocumentTagId id;
+  @EmbeddedId private DocumentTagId id;
 
-    @ManyToOne
-    @MapsId("documentId")
-    private Document document;
+  @ManyToOne
+  @MapsId("documentId")
+  private Document document;
 
-    @ManyToOne
-    @MapsId("tagId")
-    private Tag tag;
+  @ManyToOne
+  @MapsId("tagId")
+  private Tag tag;
 }
