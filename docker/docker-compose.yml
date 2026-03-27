@@ -12,7 +12,7 @@ services:
       - batch_network
     volumes:
       - challenge_postgresql_data:/var/lib/postgresql/data
-      - ../init-scripts:/docker-entrypoint-initdb.d
+      - ./init-scripts:/docker-entrypoint-initdb.d
     environment:
       POSTGRES_USER: challenge_user
       POSTGRES_PASSWORD: challenge_password
@@ -45,9 +45,22 @@ services:
       timeout: 5s
       retries: 5
 
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    networks:
+      - batch_network
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/documents;
+      mc policy set download myminio/documents;
+      exit 0;
+      "
 
   document-management-service:
-    mem_limit: 50m
     container_name: document_management_service
     build:
       context: ..

@@ -1,21 +1,23 @@
-# ---------- BUILD STAGE ----------
+# ---------- BUILD ----------
 FROM maven:3.9.9-eclipse-temurin-21 AS build
-
-WORKDIR /app
+WORKDIR /build
 
 COPY pom.xml .
+RUN mvn -q -e -B -DskipTests dependency:go-offline
+
 COPY src ./src
+RUN mvn -q -DskipTests package
 
-RUN mvn clean package -DskipTests
 
-
-# ---------- RUNTIME STAGE ----------
-FROM eclipse-temurin:21-jdk-jammy
+# ---------- RUNTIME ----------
+FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /build/target/*.jar app.jar
+
+#ENV JAVA_TOOL_OPTIONS="-Xms16m -Xmx32m -XX:MaxMetaspaceSize=32m -XX:+UseSerialGC"
 
 EXPOSE 8080
 
-ENTRYPOINT ["java","-Xms4m","-Xmx12m","-XX:MaxMetaspaceSize=24m","-XX:ReservedCodeCacheSize=4m","-XX:+UseSerialGC", "-XX:+UseContainerSupport","-jar","/app/app.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]

@@ -1,5 +1,6 @@
 package com.clara.ops.challenge.document_management_service_challenge.dto;
 
+import java.time.Instant;
 import java.util.List;
 
 public record DocumentDTO(
@@ -7,7 +8,7 @@ public record DocumentDTO(
         String user,
         String name,
         List<String> tags,
-        int size,
+        long size,
         String type,
-        String createdAt
+        Instant createdAt
 ) {}

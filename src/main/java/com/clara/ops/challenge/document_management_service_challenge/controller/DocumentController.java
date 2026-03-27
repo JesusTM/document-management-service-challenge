@@ -7,9 +7,6 @@ import com.clara.ops.challenge.document_management_service_challenge.dto.UploadD
 import com.clara.ops.challenge.document_management_service_challenge.service.DocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,29 +21,28 @@ public class DocumentController {
     private final DocumentService documentService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> upload(
+    public ResponseEntity<String> upload(
             @Valid @RequestPart("metadata") UploadDocument request,
             @RequestPart("file") MultipartFile file
     ) {
 
-        documentService.upload(request, file);
+        UUID id = documentService.upload(request, file);
 
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(id.toString());
     }
 
     @PostMapping("/search")
-    public PaginatedDocumentSearch search(
+    public ResponseEntity<PaginatedDocumentSearch> search(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @Valid @RequestBody DocumentSearchFilters filters
     ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        return documentService.search(filters, pageable);
+        return ResponseEntity.ok(documentService.search(filters, page, size));
     }
 
     @GetMapping("/download/{documentId}")
-    public DocumentDownloadUrl download(@PathVariable UUID documentId) {
-        return documentService.download(documentId);
+    public ResponseEntity<DocumentDownloadUrl> download(@PathVariable UUID documentId) {
+        return ResponseEntity.ok(documentService.download(documentId));
     }
 }

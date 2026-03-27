@@ -1,26 +1,25 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
   main:
     lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASS}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: none
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      schema: document_schema
+
   servlet:
-    tomcat:
-      threads:
-        max: 10
     multipart:
       max-file-size: 500MB
       max-request-size: 500MB
       file-size-threshold: 2MB
-server:
-  tomcat:
-    threads:
-      max: 5
+
 minio:
   url: ${MINIO_URL}
   accessKey: ${MINIO_ACCESS_KEY}

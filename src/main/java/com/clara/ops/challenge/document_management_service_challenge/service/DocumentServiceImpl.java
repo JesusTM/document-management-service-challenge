@@ -1,21 +1,12 @@
 package com.clara.ops.challenge.document_management_service_challenge.service;
 
 import com.clara.ops.challenge.document_management_service_challenge.dto.*;
-import com.clara.ops.challenge.document_management_service_challenge.entity.Document;
-import com.clara.ops.challenge.document_management_service_challenge.entity.DocumentTag;
-import com.clara.ops.challenge.document_management_service_challenge.entity.DocumentTagId;
-import com.clara.ops.challenge.document_management_service_challenge.entity.Tag;
+import com.clara.ops.challenge.document_management_service_challenge.model.Document;
 import com.clara.ops.challenge.document_management_service_challenge.exception.DocumentNotFoundException;
 import com.clara.ops.challenge.document_management_service_challenge.exception.InvalidDocumentException;
-import com.clara.ops.challenge.document_management_service_challenge.mapper.DocumentMapper;
 import com.clara.ops.challenge.document_management_service_challenge.repository.DocumentRepository;
-import com.clara.ops.challenge.document_management_service_challenge.repository.specification.DocumentSpecification;
-import com.clara.ops.challenge.document_management_service_challenge.repository.TagRepository;
 import com.clara.ops.challenge.document_management_service_challenge.storage.StorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,19 +20,18 @@ import java.util.*;
 public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentRepository documentRepository;
-    private final TagRepository tagRepository;
     private final StorageService storageService;
-    private final DocumentMapper mapper;
     private final UploadLimiter limiter;
 
     @Override
-    public void upload(UploadDocument request, MultipartFile file) {
+    public UUID upload(UploadDocument request, MultipartFile file) {
 
         limiter.acquire();
 
         try (InputStream stream = file.getInputStream()) {
             validateFile(file);
 
+            UUID documentId = UUID.randomUUID();
             String path = request.user() + "/" + request.name();
 
             storageService.upload(
@@ -51,9 +41,10 @@ public class DocumentServiceImpl implements DocumentService {
                     file.getContentType()
             );
 
+
             Document document =
                     Document.builder()
-                            .id(UUID.randomUUID())
+                            .id(documentId)
                             .userName(request.user())
                             .documentName(request.name())
                             .minioPath(path)
@@ -62,32 +53,14 @@ public class DocumentServiceImpl implements DocumentService {
                             .createdAt(Instant.now())
                             .build();
 
-            Set<DocumentTag> documentTags = new HashSet<>();
 
-            for (String tagName : request.tags()) {
 
-                Tag tag =
-                        tagRepository.findByName(tagName)
-                                .orElseGet(() ->
-                                        tagRepository.save(
-                                                Tag.builder()
-                                                        .name(tagName)
-                                                        .build()
-                                        )
-                                );
+            // Save metadata
+            documentRepository.saveDocument(document);
+            documentRepository.saveTags(request.tags());
+            documentRepository.saveDocumentTags(documentId, request.tags());
 
-                documentTags.add(
-                        DocumentTag.builder()
-                                .id(new DocumentTagId(document.getId(), tag.getId()))
-                                .document(document)
-                                .tag(tag)
-                                .build()
-                );
-            }
-
-            document.setTags(documentTags);
-
-            documentRepository.save(document);
+            return documentId;
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -97,36 +70,26 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public PaginatedDocumentSearch search(DocumentSearchFilters filters, Pageable pageable) {
-        Specification<Document> spec = Specification
-                .where(DocumentSpecification.hasUser(filters.user()))
-                .and(DocumentSpecification.hasName(filters.name()))
-                .and(DocumentSpecification.hasTags(filters.tags()));
-
-        Page<Document> page = documentRepository.findAll(spec, pageable);
-
-        List<DocumentDTO> docs = page.getContent().stream()
-                        .map(mapper::toDto)
-                        .toList();
-
-        Metadata metadata = new Metadata(
-                page.getNumber(),
-                page.getSize(),
-                page.getNumberOfElements(),
-                page.getTotalPages(),
-                page.getTotalElements()
+    public PaginatedDocumentSearch search(DocumentSearchFilters filters, int page, int size) {
+        int offset = page * size;
+        List<DocumentDTO> documents = documentRepository.searchDocuments(
+                filters.user(), filters.name(), filters.tags(), offset, size
         );
+        long totalItems = documentRepository.countDocuments(filters.user(), filters.name(), filters.tags());
+        int totalPages = (int) Math.ceil((double) totalItems / size);
 
-        return new PaginatedDocumentSearch(metadata, docs);
+        Metadata metadata = new Metadata(page, size, documents.size(), totalPages, totalItems);
+
+        return new PaginatedDocumentSearch(metadata, documents);
     }
 
     @Override
     public DocumentDownloadUrl download(UUID id) {
 
-        Document document = documentRepository.findById(id)
+        String minioPath = documentRepository.findMinioPathById(id)
                 .orElseThrow(() -> new DocumentNotFoundException(id.toString()));
 
-        String url = storageService.generateDownloadUrl(document.getMinioPath());
+        String url = storageService.generateDownloadUrl(minioPath);
 
         return new DocumentDownloadUrl(url);
     }
