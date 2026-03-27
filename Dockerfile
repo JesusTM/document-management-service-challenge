@@ -1,23 +1,18 @@
-# ---------- BUILD ----------
-FROM maven:3.9.9-eclipse-temurin-21 AS build
-WORKDIR /build
+# Stage 1: Build
+FROM maven:3.8.5-openjdk-17-slim AS build
+COPY src /home/app/src
+COPY pom.xml /home/app
+RUN mvn -f /home/app/pom.xml clean package -DskipTests
 
-COPY pom.xml .
-RUN mvn -q -e -B -DskipTests dependency:go-offline
+# Stage 2: Runtime (Tag corregido: bellsoft/liberica-openjre-alpine-musl:17)
+FROM bellsoft/liberica-openjre-alpine-musl:17
 
-COPY src ./src
-RUN mvn -q -DskipTests package
-
-
-# ---------- RUNTIME ----------
-FROM eclipse-temurin:21-jre-jammy
+# Mantenemos las banderas de "Supervivencia Extrema"
+ENV JAVA_OPTS="-Xmx10m -Xms10m -XX:MaxMetaspaceSize=36m -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=4m -Xss256k -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
 
 WORKDIR /app
-
-COPY --from=build /build/target/*.jar app.jar
-
-#ENV JAVA_TOOL_OPTIONS="-Xms16m -Xmx32m -XX:MaxMetaspaceSize=32m -XX:+UseSerialGC"
+COPY --from=build /home/app/target/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java","-jar","app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

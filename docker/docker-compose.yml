@@ -61,11 +61,15 @@ services:
       "
 
   document-management-service:
+    deploy:
+      resources:
+        limits:
+          memory: 50M
     container_name: document_management_service
     build:
       context: ..
       dockerfile: Dockerfile
-    restart: always
+    restart: no
     ports:
       - "8080:8080"
     networks:
@@ -76,7 +80,6 @@ services:
       minio:
         condition: service_healthy
     environment:
-
       DB_URL: jdbc:postgresql://postgresql:5432/challenge
       DB_USER: challenge_user
       DB_PASS: challenge_password

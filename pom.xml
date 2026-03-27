@@ -15,7 +15,7 @@
 	<description>This project implements a file management system, integrates with simulated services (LocalStack for AWS S3), features centralized exception handling, and includes both unit and integration tests. Developed as a challenge to assess advanced skills in Java 8+, Spring Boot, testing, Docker containers and docker-compose, while adhering to design patterns and best coding practices.</description>
 
 	<properties>
-		<java.version>21</java.version>
+		<java.version>17</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
@@ -35,6 +35,16 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-tomcat</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-undertow</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>

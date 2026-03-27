@@ -1,10 +1,17 @@
 spring:
+  jmx:
+    enabled: false
+  main:
+    banner-mode: "off"
+    lazy-initialization: true
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-  main:
-    lazy-initialization: true
+      - org.springframework.boot.autoconfigure.admin.SpringApplicationAdminJmxAutoConfiguration
+      - org.springframework.boot.autoconfigure.webservices.WebServicesAutoConfiguration
+      - org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration
+      - org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration
+      - org.springframework.boot.autoconfigure.websocket.servlet.WebSocketServletAutoConfiguration
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
@@ -13,12 +20,35 @@ spring:
 
     hikari:
       schema: document_schema
+      maximum-pool-size: 5
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 2000000
+      connection-timeout: 30000
 
   servlet:
     multipart:
       max-file-size: 500MB
       max-request-size: 500MB
-      file-size-threshold: 2MB
+      file-size-threshold: 2KB
+  logging:
+    level:
+      root: INFO
+      org.springframework.web: INFO
+      com.clara.ops.challenge.document_management_service_challenge: DEBUG
+server:
+  undertow:
+    # Hilos de procesamiento (I/O)
+    threads:
+      io: 2
+      worker: 10
+    # Configuración de buffers (vital para no morir por DirectMemory)
+    buffer-size: 1024 # 1KB por buffer
+    direct-buffers: false
+
+logging:
+  level:
+    root: INFO
 
 minio:
   url: ${MINIO_URL}

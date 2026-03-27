@@ -23,11 +23,13 @@ public class MinioStorageService implements StorageService {
     @Override
     public String upload(String path, InputStream stream, long size, String contentType) {
         try {
+            long partSize = 1024 * 1024;
+
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
                             .object(path)
-                            .stream(stream, size, -1)
+                            .stream(stream, size, partSize)
                             .contentType(contentType)
                             .build()
             );
