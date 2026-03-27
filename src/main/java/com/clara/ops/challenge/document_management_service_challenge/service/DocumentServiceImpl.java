@@ -7,164 +7,156 @@ import com.clara.ops.challenge.document_management_service_challenge.entity.Docu
 import com.clara.ops.challenge.document_management_service_challenge.entity.Tag;
 import com.clara.ops.challenge.document_management_service_challenge.exception.DocumentNotFoundException;
 import com.clara.ops.challenge.document_management_service_challenge.exception.InvalidDocumentException;
+import com.clara.ops.challenge.document_management_service_challenge.exception.StorageException;
 import com.clara.ops.challenge.document_management_service_challenge.mapper.DocumentMapper;
 import com.clara.ops.challenge.document_management_service_challenge.repository.DocumentRepository;
-import com.clara.ops.challenge.document_management_service_challenge.repository.specification.DocumentSpecification;
 import com.clara.ops.challenge.document_management_service_challenge.repository.TagRepository;
+import com.clara.ops.challenge.document_management_service_challenge.repository.specification.DocumentSpecification;
 import com.clara.ops.challenge.document_management_service_challenge.storage.StorageService;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.Instant;
-import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class DocumentServiceImpl implements DocumentService {
 
-    private final DocumentRepository documentRepository;
-    private final TagRepository tagRepository;
-    private final StorageService storageService;
-    private final DocumentMapper mapper;
-    private final UploadLimiter limiter;
+  private final DocumentRepository documentRepository;
+  private final TagRepository tagRepository;
+  private final StorageService storageService;
+  private final DocumentMapper mapper;
+  private final UploadLimiter limiter;
 
-    @Override
-    public void upload(UploadDocument request, MultipartFile file) {
+  @Override
+  public UUID upload(UploadDocument request, MultipartFile file) {
 
-        limiter.acquire();
+    limiter.acquire();
 
-        try (InputStream stream = file.getInputStream()) {
-            validateFile(file);
+    try (InputStream stream = file.getInputStream()) {
+      validateFile(file);
 
-            String path = request.user() + "/" + request.name();
+      String path = request.user() + "/" + request.name();
 
-            storageService.upload(
-                    path,
-                    stream,
-                    file.getSize(),
-                    file.getContentType()
-            );
+      storageService.upload(path, stream, file);
 
-            Document document =
-                    Document.builder()
-                            .id(UUID.randomUUID())
-                            .userName(request.user())
-                            .documentName(request.name())
-                            .minioPath(path)
-                            .fileSize(file.getSize())
-                            .fileType(file.getContentType())
-                            .createdAt(Instant.now())
-                            .build();
+      Document document =
+          Document.builder()
+              .id(UUID.randomUUID())
+              .userName(request.user())
+              .documentName(request.name())
+              .minioPath(path)
+              .fileSize(file.getSize())
+              .fileType(file.getContentType())
+              .createdAt(Instant.now())
+              .build();
 
-            Set<DocumentTag> documentTags = new HashSet<>();
+      Set<DocumentTag> documentTags = new HashSet<>();
 
-            for (String tagName : request.tags()) {
+      for (String tagName : request.tags()) {
+        Tag tag =
+            tagRepository
+                .findByName(tagName)
+                .orElseGet(() -> tagRepository.save(Tag.builder().name(tagName).build()));
 
-                Tag tag =
-                        tagRepository.findByName(tagName)
-                                .orElseGet(() ->
-                                        tagRepository.save(
-                                                Tag.builder()
-                                                        .name(tagName)
-                                                        .build()
-                                        )
-                                );
+        documentTags.add(
+            DocumentTag.builder()
+                .id(new DocumentTagId(document.getId(), tag.getId()))
+                .document(document)
+                .tag(tag)
+                .build());
+      }
 
-                documentTags.add(
-                        DocumentTag.builder()
-                                .id(new DocumentTagId(document.getId(), tag.getId()))
-                                .document(document)
-                                .tag(tag)
-                                .build()
-                );
-            }
+      document.setTags(documentTags);
+      documentRepository.save(document);
 
-            document.setTags(documentTags);
+      return document.getId();
+    } catch (InvalidDocumentException | StorageException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    } finally {
+      limiter.release();
+    }
+  }
 
-            documentRepository.save(document);
+  @Transactional(readOnly = true)
+  @Override
+  public PaginatedDocumentSearch search(DocumentSearchFilters filters, Pageable pageable) {
+    Specification<Document> spec =
+        Specification.where(DocumentSpecification.hasUser(filters.user()))
+            .and(DocumentSpecification.hasName(filters.name()))
+            .and(DocumentSpecification.hasTags(filters.tags()));
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            limiter.release();
-        }
+    Page<Document> page = documentRepository.findAll(spec, pageable);
+
+    List<DocumentDTO> docs = page.getContent().stream().map(mapper::toDto).toList();
+
+    Metadata metadata =
+        new Metadata(
+            page.getNumber(),
+            page.getSize(),
+            page.getNumberOfElements(),
+            page.getTotalPages(),
+            page.getTotalElements());
+
+    return new PaginatedDocumentSearch(metadata, docs);
+  }
+
+  @Override
+  public DocumentDownloadUrl download(UUID id) {
+
+    Document document =
+        documentRepository
+            .findById(id)
+            .orElseThrow(() -> new DocumentNotFoundException(id.toString()));
+
+    String url = storageService.generateDownloadUrl(document.getMinioPath());
+
+    return new DocumentDownloadUrl(url);
+  }
+
+  private void validateFile(MultipartFile file) {
+
+    if (file.isEmpty()) {
+      throw new InvalidDocumentException("File is empty");
     }
 
-    @Override
-    public PaginatedDocumentSearch search(DocumentSearchFilters filters, Pageable pageable) {
-        Specification<Document> spec = Specification
-                .where(DocumentSpecification.hasUser(filters.user()))
-                .and(DocumentSpecification.hasName(filters.name()))
-                .and(DocumentSpecification.hasTags(filters.tags()));
-
-        Page<Document> page = documentRepository.findAll(spec, pageable);
-
-        List<DocumentDTO> docs = page.getContent().stream()
-                        .map(mapper::toDto)
-                        .toList();
-
-        Metadata metadata = new Metadata(
-                page.getNumber(),
-                page.getSize(),
-                page.getNumberOfElements(),
-                page.getTotalPages(),
-                page.getTotalElements()
-        );
-
-        return new PaginatedDocumentSearch(metadata, docs);
+    if (!"application/pdf".equals(file.getContentType())) {
+      throw new InvalidDocumentException("Only PDF files are allowed");
     }
 
-    @Override
-    public DocumentDownloadUrl download(UUID id) {
+    long maxSize = 500 * 1024 * 1024;
 
-        Document document = documentRepository.findById(id)
-                .orElseThrow(() -> new DocumentNotFoundException(id.toString()));
-
-        String url = storageService.generateDownloadUrl(document.getMinioPath());
-
-        return new DocumentDownloadUrl(url);
+    if (file.getSize() > maxSize) {
+      throw new InvalidDocumentException("File exceeds 500MB limit");
     }
 
-    private void validateFile(MultipartFile file) {
+    validatePdfSignature(file);
+  }
 
-        if (file.isEmpty()) {
-            throw new InvalidDocumentException("File is empty");
-        }
+  private void validatePdfSignature(MultipartFile file) {
 
-        if (!"application/pdf".equals(file.getContentType())) {
-            throw new InvalidDocumentException("Only PDF files are allowed");
-        }
+    try (InputStream is = file.getInputStream()) {
 
-        long maxSize = 500 * 1024 * 1024;
+      byte[] header = new byte[4];
+      is.read(header);
 
-        if (file.getSize() > maxSize) {
-            throw new InvalidDocumentException("File exceeds 500MB limit");
-        }
+      String signature = new String(header);
 
-        validatePdfSignature(file);
+      if (!signature.startsWith("%PDF")) {
+        throw new InvalidDocumentException("Invalid PDF file");
+      }
+
+    } catch (IOException e) {
+      throw new InvalidDocumentException("Unable to validate file");
     }
-
-    private void validatePdfSignature(MultipartFile file) {
-
-        try (InputStream is = file.getInputStream()) {
-
-            byte[] header = new byte[4];
-            is.read(header);
-
-            String signature = new String(header);
-
-            if (!signature.startsWith("%PDF")) {
-                throw new InvalidDocumentException("Invalid PDF file");
-            }
-
-        } catch (IOException e) {
-            throw new InvalidDocumentException("Unable to validate file");
-        }
-    }
+  }
 }

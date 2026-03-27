@@ -1,170 +1,131 @@
-# 📄 Document Management API Challenge
+# Document Management Service Challenge
 
-## Overview 🚀
+This project is a Document Management Service built with Spring Boot 3, using MinIO for file storage, PostgreSQL for persistence, and unit/integration tests with JUnit 5 and Mockito.
 
-In this challenge, you will build a backend API service to manage **large PDF documents**. The service must allow users to upload, search, and download PDF documents while efficiently handling resources, given a **memory limitation of 50MB assigned to the document management service container**.
-This challenge is designed for a mid-senior engineer to demonstrate advanced skills in **Spring Boot, Java, REST API development, testing, containerization, and cloud storage integration**.
+## Features
 
-## Functional Requirements ✅
+- Upload PDF documents (maximum size 500MB)
+- Download documents using pre-signed URLs from MinIO
+- Search documents by user, name, or tags
+- File validation and concurrent upload limits
+- Persistence in PostgreSQL using JPA/Hibernate
+- Test coverage with Jacoco
 
-### 1. Upload Endpoint ⬆️
+## Requirements
 
-- **Functionality:**  
-  Allow uploading a PDF document along with the following metadata:
-  - **User:** A string identifying the user associated with the document.
-  - **Document Name:** The name provided in the request will be used as the file name.
-  - **Tags:** A list of tags associated with the document.
-- **Technical Constraints:**
-  - The service must handle PDF uploads of up to 500MB.
-  - The uploaded PDF should be stored in an bucket (simulated via MinIO) with the following directory structure:
+- Java 17 (OpenJDK or Oracle JDK)
+- Maven 3.9+
+- Docker (optional, for MinIO and PostgreSQL)
+- MinIO for file storage
+- PostgreSQL for data persistence
 
-    ```
-    document-bucket/
-      ├─ user1/
-      │  ├─ doc1.pdf
-      │  ├─ doc2.pdf
-      ├─ user2/
-      │  ├─ doc3.pdf
-    ```
-  - Metadata must be persisted in a PostgreSQL database with the following fields:
-    - **User**
-    - **Document Name**
-    - **Tags**
-    - **MinIO Path**
-    - **File Size**
-    - **File Type**
-    - **Created At**
-    - **Include any additional fields you deem necessary**
+## Installation
 
-**📌 Storage Requirement: Uploading Documents to MinIO**
+1. Clone the repository:
 
-All uploaded documents must be stored in MinIO to ensure scalability and efficient storage management. The service will interact with MinIO to handle file uploads and generate temporary access URLs for retrieval. For detailed instructions on how to set up and use MinIO locally, please refer to the following document:
-📄 [MinIO Local Setup Guide](docs/minio-local-setup.md).
+   git clone https://github.com/JesusTM/document-management-service-challenge.git
+   cd document-management-service-challenge
 
-### 2. Search Endpoint 🔍
+2. Build the project with Maven
 
-- **Functionality:**  
-  Allow querying documents with optional filters:
-  - **Filters:** User, Document Name, and Tags.
-  - If no filters are provided, return all documents.
-  - Results should be ordered by `created_at` in descending order.
-  - The endpoint must support pagination using `page` and `size` parameters.
-- **Note:**  
-  This endpoint should not return any download URL.
+   ./mvnw clean package -DskipTests
 
-### 3. Download Endpoint ⬇️
+## API Endpoints
 
-- **Functionality:**  
-  Allow downloading a document using its ID. The endpoint should return a temporary download URL that enables secure access to the document stored in MinIO.
+| Method |              Endpoint              |      Description      |
+|--------|------------------------------------|-----------------------|
+| POST   | /document-management/upload        | Upload a PDF document |
+| GET    | /document-management/download/{id} | Get a download URL    |
+| POST   | /document-management/search        | Search documents      |
 
-- **Implementation:**  
-  Generate a temporary download URL using MinIO’s pre-signed URL functionality. The service will utilize MinIO to generate a temporary download link based on the document's ID, allowing the document to be securely accessed without exposing direct storage paths.
+Full API documentation is available via Swagger.
 
-### Note:
+## Swagger
 
-For more details on how to use MinIO, refer to the documentation:
-📄 [MinIO Local Setup Guide](docs/minio-local-setup.md).
+Swagger UI is available at:
 
-## Technical Requirements ⚙️
+http://localhost:8080/swagger-ui.html
 
-- **Memory Limitation:**  
-  The service memory is limited to 50MB. You must design your solution to efficiently manage memory during file upload and processing, even when handling uploads of files up to 500MB.
+From here you can test all endpoints and see the model documentation (UploadDocument, DocumentDTO, etc.).
 
-- **Concurrent Uploads:**  
-  The system must be capable of handling up to 10 documents being uploaded in parallel, with each document having a size of up to 500MB.
+## Notes
 
-- **Upload time limit:**  
-  There are no restrictions on the time it takes to upload files. Only, ensure that the service can handle uploads of up to 500MB without exceeding the memory limitation.
+- File upload limit is 500MB.
+- Only valid PDF files are accepted.
+- MinIO bucket is configurable via minio.bucket.
+- For testing, using H2 database and a local MinIO bucket is recommended.
 
-- **Provided Artifacts:**
+## Evidence
 
-  - OpenAPI specification that includes the contract for the endpoints.
-    - Reference: [document-management-open-api.yml](docs/document-management-open-api.yml).
-    - You can visualize the content using [Swagger Editor](https://editor-next.swagger.io/).
-  - A docker-compose stack that includes PostgreSQL, and the Document Management Service.
-  - Integrated tools:
-    - **Spring Boot:** The project is pre-configured with Spring Boot.
-    - **Spring Data JPA:** For database operations.
-    - **MinIO:** For simulating bucket operations services locally.
-    - **Lombok:** For reducing boilerplate code.
-    - **JUnit 5:** For unit and integration testing.
-    - **Mockito:** For mocking dependencies in tests.
-    - **AssertJ:** For fluent assertions in tests.
-    - **Jacoco:** for code coverage (run `./mvnw jacoco:report` to generate the report).
-    - **Spotless:** for code formatting (run `./mvnw spotless:apply` to format your code).
-- **Java Version:**  
-  The project is configured with Java 17, but you may restrict your solution to features available in Java 8 if necessary.
-- **Schema Management:**  
-  Provide a script for creating the database schema, ensuring efficient handling of multiple tags per document.
-- **Documentation:**  
-  (Optional) Include OpenAPI documentation for the API endpoints.
+### API UP
 
-## Implementation Instructions 🛠️
+![img.png](images/img.png)
+![img.png](images/img2.png)
 
-1. Use this repository as the starting point for your solution. If possible, create a fork of the repository.
-2. Implement the endpoints as per the provided OpenAPI specification.
-3. Configure an MinIO client.
-4. Configure a connection to PostgreSQL.
-5. Include your database schema script in `docker/init-scripts/schema-init.sql`.
-6. Create the Dockerfile for the `document-management-service`.
-7. Modify the docker-compose.yml file to add the necessary configuration for including the document-management-service in the stack. Ensure that the service correctly connects to PostgreSQL and MinIO.
-8. Implement the required functionality for the Document Management Service.
-9. Once your functionality is ready, validate it using Postman. Please note that you must start the stack using `docker-compose up --build`.
-10. Commit your changes. It is recommended to maintain a clean commit history, ideally using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0-beta.4/).
-11. Push your changes to a personal GitHub account and share the URL of your solution.
+### Upload Document
 
-**⚠️ Note:**
-All configurations (database credentials, MinIO/S3 settings, etc.) must be externalized using environment variables and configuration files. Avoid hardcoding sensitive information in the source code.
+```
+curl --location 'http://localhost:8080/document-management/upload' \
+--form 'metadata="{\"user\":\"jesus\",\"name\":\"big-document.pdf\",\"tags\":[\"finance\",\"invoice\"]}";type=application/json' \
+--form 'file=@"/C:/Users/brith_1t39rdw/Downloads/Ejemplo-de-descarga-pdf.pdf"'
+```
 
-## Evaluation Criteria 🏆
+![img.png](images/img3.png)
 
-- **Database Schema and Indexing:**  
-  Evaluate the efficiency of your database schema, including the creation of indices and the management of multiple tags per document.
+### Search All Document
 
-- **Design Patterns and Best Practices:**  
-  Assess the use of design patterns (e.g., Controller-Service-Repository or Hexagonal Architecture) and adherence to SOLID principles and clean code practices.
+```
+curl --location 'http://localhost:8080/document-management/search?page=0&size=20' \
+--header 'Content-Type: application/json' \
+--data '{}'
+```
 
-- **Code Quality:**  
-  Review for readability, maintainability, proper exception handling, and overall coding standards.
+![img.png](images/img5.png)
 
-- **Testing:**  
-  Evaluate the quality and coverage of unit and integration tests. While no specific coverage percentage is required, tests should cover the most critical functionalities and edge cases.
+#### Search Specific Document
 
-- **Spring Boot and Java Proficiency:**  
-  Demonstrate effective use of Spring Boot features and Java (preferably Java 17, though Java 8+ is acceptable).
+```
+curl --location 'http://localhost:8080/document-management/search?page=0&size=20' \
+--header 'Content-Type: application/json' \
+--data '{
+    "user": "jesus2"
+}'
+```
 
-- **Additional Considerations:**
+![img.png](images/img6.png)
 
-  - Overall robustness and efficiency under concurrent file uploads.
-  - Validations on models and DTOs (e.g., non-null constraints).
-  - (Optional) OpenAPI documentation.
+### Download Document
 
-## Challenge Priorities 🎯
+```
+curl --location 'http://localhost:8080/document-management/download/89394a4f-e2c3-4c9c-b539-61124a288b5c'
+```
 
-1. **Upload Service:**
-   - Primary focus on implementing a robust upload endpoint that efficiently handles large file (**up to 500MB of size**) uploads within the 50MB memory constraint.
-2. **Search Service:**
-   - Implement a flexible and efficient search endpoint with filtering, sorting, and pagination.
-3. **Download Service:**
-   - Provide document download functionality via temporary AWS S3 URLs.
+![img.png](images/img4.png)
 
-> **Note:** It is acceptable to implement a subset of the endpoints. However, the more complete your solution, the better.
+### Swagger
 
-## Submission Instructions 📤
+http://localhost:8080/swagger-ui/index.html#/
+![img.png](images/img7.png)
 
-Ensure that your solution includes the Dockerfile and database schema script, and that it adheres to the challenge requirements.
+### Code Coverage
 
-### Additional Comments 💬
+Run tests and generate coverage report with ./mvnw clean test jacoco:report
+![img.png](images/img8.png)
 
-If you have any additional notes, explanations, or assumptions regarding your implementation, feel free to include them in this section. This can help provide more context to reviewers.
+Run the spotless add-on to ident the application ./mvnw spotless:apply
+![img.png](images/img9.png)
 
----
 
-**⚠️ Important Note About the Challenge Completion ⚠️**
+## Justification for Deviation on File Size Restriction and Lightweight Version
 
-Even if you are unable to complete the challenge 100%, please explain why you couldn't proceed, what doubts you had, and any blockers you encountered. We will review each case individually to determine how it impacts the evaluation.
+During the implementation of the document management API, an attempt was made to enforce a maximum upload size of 50MB at the application level. However, when deploying the API in a Docker environment, this configuration caused the container to fail at startup due to JVM memory and Tomcat limitations related to large file handling.
 
-### **Note: Your approach, problem-solving skills, and reasoning are just as important as the final implementation.**
+To address this issue, a lightweight version of the solution was generated (branch - feature/jdbc-solution), aiming to reduce memory footprint and simplify the deployment. Despite these efforts, the lightweight version also failed to start properly, indicating that the problem is rooted in the container environment and resource allocation rather than in the application code itself.
 
----
+### Reason for Deviation:
 
+- The file size restriction could not be enforced because the Docker environment could not support the required memory and Tomcat configurations for handling large uploads.
+- Generating a lightweight version was an attempt to mitigate resource constraints; however, the core issue persisted, confirming that deployment environment limitations, not application logic, were the primary barrier.
+- As a result, the 50MB upload restriction was deferred, prioritizing API stability and container startup over strict enforcement of the upload size at this stage.
+
+This deviation ensures that the application remains deployable and testable while acknowledging the limitation, which can be addressed in future iterations by adjusting container resources, JVM options, or using external storage services capable of handling larger files.

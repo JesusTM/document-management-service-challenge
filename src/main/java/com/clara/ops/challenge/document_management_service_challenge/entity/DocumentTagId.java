@@ -1,10 +1,9 @@
 package com.clara.ops.challenge.document_management_service_challenge.entity;
 
-import lombok.*;
-
 import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.UUID;
+import lombok.*;
 
 @Embeddable
 @Getter
@@ -14,7 +13,7 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class DocumentTagId implements Serializable {
 
-    private UUID documentId;
+  private UUID documentId;
 
-    private Long tagId;
+  private Long tagId;
 }

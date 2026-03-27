@@ -1,14 +1,29 @@
 spring:
+  data:
+    jpa:
+      repositories:
+        bootstrap-mode: lazy
   main:
+    allow-bean-definition-overriding: true
     lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASS}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: document_schema
   servlet:
     tomcat:
       threads:
@@ -17,12 +32,22 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
       file-size-threshold: 2MB
+      resolve-lazily: true
 server:
   tomcat:
     threads:
       max: 5
+    max-connections: 100
+    accept-count: 100
+    max-swallow-size: 1
 minio:
   url: ${MINIO_URL}
   accessKey: ${MINIO_ACCESS_KEY}
   secretKey: ${MINIO_SECRET_KEY}
   bucket: ${MINIO_BUCKET}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
